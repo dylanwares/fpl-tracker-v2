@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------
+   Design tokens — single source of truth (docs/fpl-app-design-spec.md §2)
+   Change a colour here and it changes everywhere.
+   --------------------------------------------------------------- */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg: #0b0b0e;
+  --surface-1: #141418;
+  --surface-2: #1c1c22;
+  --surface-3: #26262e;
+  --border: #2a2a33;
+  --border-strong: #3a3a45;
+
+  /* Text */
+  --text-1: #ffffff;
+  --text-2: #a0a0ad;
+  --text-3: #6b6b78;
+
+  /* Accent — Premier League purple ramp */
+  --accent-900: #37003c;
+  --accent-700: #6b1e8f;
+  --accent-600: #8b2fd6;
+  --accent-400: #b14bf4;
+  --accent-glow: rgba(177, 75, 244, 0.12);
+
+  /* Semantic — RAG + states */
+  --good: #00e87a;
+  --warn: #ffb020;
+  --bad: #ff5a5f;
+  --neutral: #6b6b78;
+
+  /* Pitch view (My Team). Deep enough to read as grass without fighting the
+     dark theme — a full FPL-green pitch would blow out every surface near it. */
+  --pitch-far: #0c2a1b;
+  --pitch-near: #17402a;
+  --pitch-line: rgba(255, 255, 255, 0.13);
+  --pitch-stripe: rgba(255, 255, 255, 0.022);
+
+  /* Fixture difficulty — desaturated fills, bright text (§2.5) */
+  --fdr-1-bg: rgba(0, 232, 122, 0.22);
+  --fdr-1-fg: #00e87a;
+  --fdr-2-bg: rgba(0, 232, 122, 0.11);
+  --fdr-2-fg: #7fefb8;
+  --fdr-3-bg: rgba(107, 107, 120, 0.14);
+  --fdr-3-fg: #a0a0ad;
+  --fdr-4-bg: rgba(255, 90, 95, 0.12);
+  --fdr-4-fg: #ff9a9d;
+  --fdr-5-bg: rgba(255, 90, 95, 0.24);
+  --fdr-5-fg: #ff5a5f;
+}
+
+/* Map tokens into Tailwind's theme so `bg-surface-1`, `text-text-2` etc. work */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+
+  --color-accent-900: var(--accent-900);
+  --color-accent-700: var(--accent-700);
+  --color-accent-600: var(--accent-600);
+  --color-accent-400: var(--accent-400);
+  --color-accent-glow: var(--accent-glow);
+
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-neutral: var(--neutral);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 8px;
+  --radius-container: 10px;
+  --radius-input: 6px;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text-1);
+  /* Kill the rubber-band and pull-to-refresh that give a web app away. */
+  overscroll-behavior-y: none;
+}
+
+/* --- Native-app behaviours (design spec §8) ------------------------------
+   Each of these removes a specific tell that this is a browser page. */
+* {
+  /* No grey flash on tap. */
+  -webkit-tap-highlight-color: transparent;
+  /* No 300ms double-tap-to-zoom delay. */
+  touch-action: manipulation;
+}
+
+/* Chrome isn't selectable — apps don't let you drag-select a tab bar.
+   Content stays selectable so numbers can still be copied. */
+nav,
+header,
+button,
+[role="tab"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body {
+  /* The single highest-impact typographic choice here (design spec §3):
+     without tabular figures every stat column jitters as values change. */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Depth comes from surface lightness + 1px borders, never shadows (§4). */
+* {
+  border-color: var(--border);
+}
+
+::selection {
+  background: var(--accent-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- Pitch (My Team, design spec §6.9) ---------------------------------
+   Drawn in CSS rather than shipped as an image: it scales to any width, costs
+   no request, and recolours with the tokens above. */
+.pitch {
+  background-color: var(--pitch-far);
+  background-image:
+    /* Halfway line and centre circle */
+    radial-gradient(
+      circle at 50% 50%,
+      transparent calc(9% - 1px),
+      var(--pitch-line) calc(9% - 1px),
+      var(--pitch-line) 9%,
+      transparent 9%
+    ),
+    linear-gradient(to bottom, transparent calc(50% - 1px), var(--pitch-line) calc(50% - 1px), var(--pitch-line) 50%, transparent 50%),
+    /* Mown stripes */
+    repeating-linear-gradient(
+      to bottom,
+      var(--pitch-stripe) 0 8%,
+      transparent 8% 16%
+    ),
+    /* Depth: brighter toward the near touchline */
+    linear-gradient(to bottom, var(--pitch-far), var(--pitch-near));
+}
+
+/* --- Player sheet -------------------------------------------------------
+   A native <dialog>, so focus trapping and Escape come for free. Bottom sheet
+   on mobile, centred panel from `sm` up — the two shapes a native app uses. */
+dialog.sheet {
+  margin: auto auto 0;
+  max-height: 88dvh;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+dialog.sheet::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+@media (min-width: 640px) {
+  dialog.sheet {
+    margin: auto;
+  }
+}
+
+dialog.sheet[open] {
+  animation: sheet-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+dialog.sheet[open]::backdrop {
+  animation: fade-in 220ms ease-out;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (min-width: 640px) {
+  @keyframes sheet-in {
+    from {
+      transform: scale(0.97);
+      opacity: 0;
+    }
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}

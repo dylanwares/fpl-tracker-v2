@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="FPL Tracker">
+  <rect width="512" height="512" fill="#0B0B0E"/>
+  <text x="256" y="300" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="150"
+        font-weight="700" fill="#B14BF4" text-anchor="middle" letter-spacing="-4">FPL</text>
+</svg>
