@@ -19,9 +19,9 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
   icons: {
-    icon: "/icon.svg",
-    // The generated PNG from apple-icon.tsx — iOS uses this for the home screen.
-    apple: "/apple-icon",
+    icon: "/favicon.png",
+    // iOS uses this for the home screen icon.
+    apple: "/favicon.png",
   },
 };
 
