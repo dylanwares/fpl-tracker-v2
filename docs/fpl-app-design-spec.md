@@ -295,16 +295,26 @@ the strip rather than by reading a list.
 - **A gameweek is the column, not a match.** The xP feed prices a gameweek, so a
   double is summed rather than split and the two rows stay comparable.
 - Each column: gameweek label, the opponent cell filled by difficulty (§2.5),
-  the number with its RAG dot, and — past row only — minutes and xG, or saves
-  for a keeper, since xG is 0.00 for one every week.
+  the number with its RAG dot, and — past row only — minutes over xG on two
+  lines, or saves for a keeper, since xG is 0.00 for one every week.
+- **Every number carries its unit** — `6.4 xP`, `13 pts`, `0.74 xG` — in 9–10px
+  `--text-3` beside the value. Two rows of bare numbers are two different
+  quantities and nothing else on the cell says which.
+- **Columns share the row width** (`flex-1 basis-0`, capped at 4.5rem) rather
+  than taking a fixed size, so five fit any panel from a 360px phone up and both
+  rows land on the same grid for free. Beware: `items-center` on the wrapping
+  column makes each row shrink to content, and the columns then collapse.
 - **Always five columns.** Early in the season the past row is left-padded with
   quiet dashes, so the newest gameweek is always the rightmost column and the
   two rows line up.
 - Three different empty states, and they must stay distinguishable: a **padding**
   column (hasn't happened), a **blank** gameweek (hatched cell, his team sits
   out), and **didn't play** (grey rating, `0'`).
-- Both rows scroll together inside one container, so a double gameweek can never
-  push the sheet sideways.
+- The upcoming row is shorter than the past row, and that is deliberate:
+  reserving the minutes/xG lines to match heights leaves an obvious empty shelf
+  under every forecast. Columns line up on width, which is what the grid needs.
+- Both rows scroll together inside one container, so nothing can push the sheet
+  sideways.
 
 **The two rows are RAG'd against different peer groups, on purpose.** A forecast
 is rated against the spread of every projected player's xP in that position — the

@@ -151,10 +151,9 @@ function Body({ detail, onClose }: { detail: PlayerDetail; onClose: () => void }
       </Section>
 
       <Section title="Form and fixtures">
-        {/* Both rows scroll together, so a double gameweek can never push the
-            sheet itself sideways. */}
+        {/* Both rows scroll together, so nothing can push the sheet sideways. */}
         <div className="-mx-1 overflow-x-auto px-1">
-          <div className="flex w-max min-w-full flex-col gap-2.5">
+          <div className="flex w-full flex-col gap-2.5">
             <FormRow
               label="Last 5"
               columns={detail.history}
@@ -224,15 +223,15 @@ function FormRow({
   label: string;
   columns: DetailGameweek[];
   past?: boolean;
-  /** Keepers get saves under the score; xG is 0.00 for them every week. */
+  /** Keepers get saves where outfielders get xG; theirs is 0.00 every week. */
   keeper?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex w-full flex-col items-center gap-1">
       <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-text-3">
         {label}
       </span>
-      <ol className="flex items-stretch gap-1">
+      <ol className="flex w-full items-stretch justify-center gap-1">
         {columns.map((column, index) => (
           <FormCell
             key={column.gameweek ?? `pad-${index}`}
@@ -261,14 +260,28 @@ function FormCell({
   const isPadding = column.gameweek === null;
   const blank = "\u00a0";
 
+  // Minutes and xG get a line each. Spelling out "xG" costs width, and a
+  // 360px phone leaves a column about 45px wide — not enough for both on one
+  // line, and not enough to hang minutes off the gameweek label either.
+  const footer =
+    past && column.minutes !== null
+      ? [`${column.minutes}'`, keeper ? `${column.saves ?? 0} sv` : `${column.xg?.toFixed(2) ?? "–"} xG`]
+      : past
+        ? [blank, blank]
+        : null;
+
   return (
     <li
       className={cn(
-        "flex w-[3.6rem] shrink-0 flex-col items-center gap-1 rounded-[8px] px-1 py-1.5",
+        // Columns share the row rather than taking a fixed width, so five of
+        // them fit any panel from a 360px phone up, and both rows land on the
+        // same grid for free. Capped so they don't sprawl on a wide sheet.
+        "flex min-w-0 flex-1 basis-0 flex-col items-center gap-1 rounded-[8px] px-0.5 py-1.5",
+        "max-w-[4.5rem]",
         isPadding ? "bg-surface-2/40" : "bg-surface-2",
       )}
     >
-      <span className="text-[10px] font-semibold uppercase tracking-[0.04em] text-text-3">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.04em] tabular-nums text-text-3">
         {isPadding ? blank : `GW${column.gameweek}`}
       </span>
 
@@ -295,25 +308,32 @@ function FormCell({
         )}
       </span>
 
-      <span className="tabular-nums">
+      {/* Every number in the strip is labelled — a bare 6.4 above a bare 2 is
+          two different quantities and nothing on the cell says which. */}
+      <span className="flex items-center gap-1 whitespace-nowrap tabular-nums">
         {isPadding ? (
           <span className="text-[13px]">{blank}</span>
         ) : column.points === null ? (
           <span className="text-[13px] text-text-3">–</span>
         ) : (
-          <RagValue rag={column.rag} className="gap-1 text-[13px]">
-            {past ? column.points : column.points.toFixed(1)}
-          </RagValue>
+          <>
+            <RagValue rag={column.rag} className="gap-1 text-[13px]">
+              {past ? column.points : column.points.toFixed(1)}
+            </RagValue>
+            <span className="text-[9px] text-text-3">{past ? "pts" : "xP"}</span>
+          </>
         )}
       </span>
 
-      {/* Rendered in both rows, empty upcoming, so the two rows stay the same
-          height and the columns read as one grid. */}
-      <span className="text-[10px] tabular-nums text-text-3">
-        {past && column.minutes !== null
-          ? `${column.minutes}' · ${keeper ? `${column.saves ?? 0} sv` : (column.xg?.toFixed(2) ?? "–")}`
-          : blank}
-      </span>
+      {/* Past row only. Reserving the space in the upcoming row would keep the
+          two the same height, but it leaves an obvious empty shelf under every
+          forecast; the columns line up on width, which is what the grid needs. */}
+      {footer !== null && (
+        <span className="flex flex-col items-center whitespace-nowrap text-[10px] leading-[1.3] tabular-nums text-text-3">
+          <span>{footer[0]}</span>
+          <span>{footer[1]}</span>
+        </span>
+      )}
     </li>
   );
 }
