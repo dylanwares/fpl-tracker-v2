@@ -283,12 +283,39 @@ anywhere — a pitch chip, a squad row, a Scout table cell, a League threat.
   wrong trade. The panel holds its shape with a skeleton while it loads.
 
 Sections, in order: identity and price, availability if flagged, ownership and
-form, the three ratings with values and deltas, **upcoming fixtures with
-difficulty and per-gameweek xP**, underlying per-90 numbers, season totals.
+form, the three ratings with values and deltas, **the form strip**, underlying
+per-90 numbers, season totals.
 
-Per-gameweek xP is RAG'd against a typical single gameweek *for that position*,
-so 6.2 reads as a strong week for a defender and an ordinary one for a premium
-forward.
+#### The form strip
+
+Two horizontal rows of five fixed-width columns — results on top, forecast
+below — so the question "is he coming or going?" is answered by one glance down
+the strip rather than by reading a list.
+
+- **A gameweek is the column, not a match.** The xP feed prices a gameweek, so a
+  double is summed rather than split and the two rows stay comparable.
+- Each column: gameweek label, the opponent cell filled by difficulty (§2.5),
+  the number with its RAG dot, and — past row only — minutes and xG, or saves
+  for a keeper, since xG is 0.00 for one every week.
+- **Always five columns.** Early in the season the past row is left-padded with
+  quiet dashes, so the newest gameweek is always the rightmost column and the
+  two rows line up.
+- Three different empty states, and they must stay distinguishable: a **padding**
+  column (hasn't happened), a **blank** gameweek (hatched cell, his team sits
+  out), and **didn't play** (grey rating, `0'`).
+- Both rows scroll together inside one container, so a double gameweek can never
+  push the sheet sideways.
+
+**The two rows are RAG'd against different peer groups, on purpose.** A forecast
+is rated against the spread of every projected player's xP in that position — the
+useful question there is "will he even start". A result is rated against what a
+*regular starter* in that position is expected to return, because across every
+projected player the thirds sit near 0.3 and 2.0, which rates a two-point blank
+green. Across starters they sit near 2.7 and 3.5, which calls it what it is.
+
+Grey is not red. Red means he played and returned nothing; grey means he wasn't
+on the pitch. Collapsing the two would hide the thing you most want from a form
+strip.
 
 ---
 

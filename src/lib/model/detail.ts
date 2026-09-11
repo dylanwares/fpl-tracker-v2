@@ -7,10 +7,17 @@
  * plain JSON is a hard requirement rather than a preference.
  */
 import { config } from "@/lib/config";
-import type { Rag } from "@/components/ui/rag";
 import type { Difficulty } from "@/components/ui/fixture-cell";
 import { resolveGameweekState, horizonEvents } from "@/lib/fpl/gameweek";
 import { difficultyFor, DIFFICULTY_SOURCE } from "./difficulty";
+import { getElementHistory } from "./element";
+import {
+  padLeft,
+  summariseGameweek,
+  PAST_COLUMNS,
+  type DetailGameweek,
+  type DetailMatch,
+} from "./form-strip";
 import { buildSchedule } from "./fixtures";
 import { getAllFixtures, getGameData } from "./game";
 import { getPlayerPool } from "./pool";
@@ -18,19 +25,7 @@ import { buildTeamForm } from "./form";
 import { buildRagScorer, type PlayerRating } from "./rag";
 import { MAX_HORIZON, type TickerRow } from "./ticker";
 
-export interface DetailFixture {
-  gameweek: number;
-  /** Empty on a blank gameweek; two entries on a double. */
-  matches: {
-    opponent: string;
-    opponentName: string;
-    isHome: boolean;
-    difficulty: Difficulty;
-  }[];
-  /** Projected points for the gameweek, or null when unprojected. */
-  xp: number | null;
-  xpRag: Rag;
-}
+export type { DetailGameweek, DetailMatch } from "./form-strip";
 
 export interface PlayerDetail {
   id: number;
@@ -64,7 +59,12 @@ export interface PlayerDetail {
   isProjected: boolean;
   xpNext: number | null;
   xpHorizon: number | null;
-  fixtures: DetailFixture[];
+  /** The five gameweeks up to and including the one in progress, oldest first. */
+  history: DetailGameweek[];
+  /** The horizon ahead, starting with the gameweek being planned for. */
+  fixtures: DetailGameweek[];
+  /** How many of the five past columns are real gameweeks rather than padding. */
+  playedGameweeks: number;
   rating: PlayerRating;
   difficultySource: string;
 }
@@ -73,10 +73,11 @@ export async function getPlayerDetail(
   elementId: number,
   horizon = config.defaultHorizon,
 ): Promise<PlayerDetail | null> {
-  const [game, pool, rawFixtures] = await Promise.all([
+  const [game, pool, rawFixtures, matches] = await Promise.all([
     getGameData(),
     getPlayerPool(horizon),
     getAllFixtures(),
+    getElementHistory(elementId),
   ]);
 
   const entry = pool.players.find((candidate) => candidate.player.id === elementId);
@@ -93,26 +94,42 @@ export async function getPlayerDetail(
   const gameweeks = horizonEvents(game.events, from, horizon);
   const byGameweek = schedule.get(player.teamId);
 
-  const fixtures: DetailFixture[] = gameweeks.map((gameweek) => {
-    const scheduled = byGameweek?.get(gameweek) ?? [];
-    const xp = entry.projection?.byGameweek.get(gameweek)?.points ?? null;
+  const describe = (gameweek: number): DetailMatch[] =>
+    (byGameweek?.get(gameweek) ?? []).map((fixture) => {
+      const raw = byFixtureId.get(fixture.fixtureId);
+      const opponent = teamsById.get(fixture.opponentId);
+      return {
+        opponent: opponent?.shortName ?? "???",
+        opponentName: opponent?.name ?? "Unknown",
+        isHome: fixture.isHome,
+        difficulty: raw ? difficultyFor(fixture, raw) : (3 as Difficulty),
+      };
+    });
 
+  const fixtures: DetailGameweek[] = gameweeks.map((gameweek) => {
+    const xp = entry.projection?.byGameweek.get(gameweek)?.points ?? null;
     return {
       gameweek,
-      matches: scheduled.map((fixture) => {
-        const raw = byFixtureId.get(fixture.fixtureId);
-        const opponent = teamsById.get(fixture.opponentId);
-        return {
-          opponent: opponent?.shortName ?? "???",
-          opponentName: opponent?.name ?? "Unknown",
-          isHome: fixture.isHome,
-          difficulty: raw ? difficultyFor(fixture, raw) : (3 as Difficulty),
-        };
-      }),
-      xp,
-      xpRag: scorer.rateGameweek(player.position, xp),
+      matches: describe(gameweek),
+      points: xp,
+      rag: scorer.rateGameweek(player.position, xp),
+      minutes: null,
+      xg: null,
+      saves: null,
     };
   });
+
+  // Every gameweek before the one we're planning for is behind us — including
+  // one still in progress, which `finished` would drop out of both rows.
+  const past = game.events.filter((event) => event.id < from).slice(-PAST_COLUMNS);
+  const history = padLeft(
+    past.map((event) =>
+      summariseGameweek(event.id, describe(event.id), matches, (points) =>
+        scorer.rateReturn(player.position, points),
+      ),
+    ),
+    PAST_COLUMNS,
+  );
 
   return {
     id: player.id,
@@ -146,7 +163,9 @@ export async function getPlayerDetail(
     isProjected: entry.isProjected,
     xpNext: entry.xpNext,
     xpHorizon: entry.xpHorizon,
+    history,
     fixtures,
+    playedGameweeks: past.length,
     rating: scorer.rate(entry),
     difficultySource: DIFFICULTY_SOURCE,
   };

@@ -44,6 +44,12 @@ Personal FPL planning tool. Read `docs/fpl-app-spec.md` (product) and
 - **Player detail is one component.** `PlayerTrigger` + the sheet mounted in
   the app shell (design spec §6.10). Never build a second player detail view,
   and pass an element id rather than a serialised player.
+- **Rating a result is not rating a forecast.** `rateGameweek` scores xP against
+  every projected player in the position; `rateReturn` scores points actually
+  scored against regular starters only. Swapping them rates a two-point blank
+  green. Per-match history comes from `model/element.ts`
+  (`element-summary/{id}/`, fetched on sheet open, never for the whole pool),
+  and the strip shaping is pure in `model/form-strip.ts`.
 - **Fixture difficulty goes through `src/lib/model/difficulty.ts`.** It returns
   FPL's static official FDR today; Stage 5 replaces the body with our own team
   ratings and nothing else changes.

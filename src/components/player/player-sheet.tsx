@@ -6,9 +6,9 @@ import { BlankCell, FixtureCell } from "@/components/ui/fixture-cell";
 import { RagPill, RagValue } from "@/components/ui/rag";
 import { Skeleton } from "@/components/ui/states";
 import { badgeUrl } from "@/lib/model/assets";
-import type { PlayerDetail } from "@/lib/model/detail";
+import type { DetailGameweek, PlayerDetail } from "@/lib/model/detail";
 import { deltaToPeers, type MetricScore } from "@/lib/model/rag";
-import { formatSigned } from "@/lib/utils";
+import { cn, formatSigned } from "@/lib/utils";
 
 /**
  * The universal player sheet (design spec §6.10).
@@ -150,50 +150,26 @@ function Body({ detail, onClose }: { detail: PlayerDetail; onClose: () => void }
         )}
       </Section>
 
-      <Section title="Upcoming">
-        <ul className="flex flex-col gap-1.5">
-          {detail.fixtures.map((fixture) => (
-            <li key={fixture.gameweek} className="flex items-center gap-3">
-              <span className="w-10 shrink-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-3">
-                GW{fixture.gameweek}
-              </span>
-
-              <span className="flex flex-1 flex-wrap items-center gap-1">
-                {fixture.matches.length === 0 ? (
-                  <BlankCell />
-                ) : (
-                  fixture.matches.map((match) => (
-                    <FixtureCell
-                      key={`${match.opponent}-${match.isHome}`}
-                      opponent={match.opponent}
-                      home={match.isHome}
-                      difficulty={match.difficulty}
-                    />
-                  ))
-                )}
-                {fixture.matches.length > 1 && (
-                  <span className="rounded-[4px] bg-surface-3 px-1 text-[10px] font-bold text-text-2">
-                    ×2
-                  </span>
-                )}
-              </span>
-
-              <span className="w-14 shrink-0 text-right">
-                {fixture.xp === null ? (
-                  <span className="text-[14px] text-text-3">–</span>
-                ) : (
-                  <RagValue rag={fixture.xpRag} className="justify-end">
-                    {fixture.xp.toFixed(1)}
-                  </RagValue>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
+      <Section title="Form and fixtures">
+        {/* Both rows scroll together, so a double gameweek can never push the
+            sheet itself sideways. */}
+        <div className="-mx-1 overflow-x-auto px-1">
+          <div className="flex w-max min-w-full flex-col gap-2.5">
+            <FormRow
+              label="Last 5"
+              columns={detail.history}
+              past
+              keeper={detail.position === "GKP"}
+            />
+            <FormRow label={`Next ${detail.fixtures.length}`} columns={detail.fixtures} />
+          </div>
+        </div>
 
         <p className="mt-3 text-[11px] text-text-3">
-          xP is rated against a typical single gameweek for a {detail.position}. Difficulty from{" "}
-          {detail.difficultySource} — replaced by our own team ratings at Stage 5.
+          Results are rated against what a starting {detail.position} is expected to return in
+          a gameweek; forecasts against the spread of every {detail.position}&apos;s xP. Grey
+          means he didn&apos;t play, not that he played badly. Past cells show minutes and xG.
+          Difficulty from {detail.difficultySource}.
         </p>
 
         {!detail.isProjected && (
@@ -231,6 +207,114 @@ function Body({ detail, onClose }: { detail: PlayerDetail; onClose: () => void }
         />
       </Section>
     </>
+  );
+}
+
+/**
+ * One row of the form strip (design spec §6.10): a fixed five columns, past
+ * above future. Fixed-width cells rather than a grid — the two rows then line
+ * up column for column without either knowing about the other.
+ */
+function FormRow({
+  label,
+  columns,
+  past = false,
+  keeper = false,
+}: {
+  label: string;
+  columns: DetailGameweek[];
+  past?: boolean;
+  /** Keepers get saves under the score; xG is 0.00 for them every week. */
+  keeper?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-text-3">
+        {label}
+      </span>
+      <ol className="flex items-stretch gap-1">
+        {columns.map((column, index) => (
+          <FormCell
+            key={column.gameweek ?? `pad-${index}`}
+            column={column}
+            past={past}
+            keeper={keeper}
+          />
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function FormCell({
+  column,
+  past,
+  keeper,
+}: {
+  column: DetailGameweek;
+  past: boolean;
+  keeper: boolean;
+}) {
+  // A padding column is a gameweek that hasn't happened — distinct from a blank,
+  // which is a gameweek his team sits out and gets the hatched cell. It carries
+  // one dash and no other furniture, so the eye skips straight past it.
+  const isPadding = column.gameweek === null;
+  const blank = "\u00a0";
+
+  return (
+    <li
+      className={cn(
+        "flex w-[3.6rem] shrink-0 flex-col items-center gap-1 rounded-[8px] px-1 py-1.5",
+        isPadding ? "bg-surface-2/40" : "bg-surface-2",
+      )}
+    >
+      <span className="text-[10px] font-semibold uppercase tracking-[0.04em] text-text-3">
+        {isPadding ? blank : `GW${column.gameweek}`}
+      </span>
+
+      <span className="flex w-full flex-col items-center gap-0.5">
+        {isPadding ? (
+          <span
+            aria-label="Not played yet"
+            className="inline-flex h-7 w-full items-center justify-center text-[12px] text-text-3"
+          >
+            –
+          </span>
+        ) : column.matches.length === 0 ? (
+          <BlankCell className="h-7 w-full min-w-0" />
+        ) : (
+          column.matches.map((match) => (
+            <FixtureCell
+              key={`${match.opponent}-${match.isHome}`}
+              opponent={match.opponent}
+              home={match.isHome}
+              difficulty={match.difficulty}
+              className="h-7 w-full min-w-0"
+            />
+          ))
+        )}
+      </span>
+
+      <span className="tabular-nums">
+        {isPadding ? (
+          <span className="text-[13px]">{blank}</span>
+        ) : column.points === null ? (
+          <span className="text-[13px] text-text-3">–</span>
+        ) : (
+          <RagValue rag={column.rag} className="gap-1 text-[13px]">
+            {past ? column.points : column.points.toFixed(1)}
+          </RagValue>
+        )}
+      </span>
+
+      {/* Rendered in both rows, empty upcoming, so the two rows stay the same
+          height and the columns read as one grid. */}
+      <span className="text-[10px] tabular-nums text-text-3">
+        {past && column.minutes !== null
+          ? `${column.minutes}' · ${keeper ? `${column.saves ?? 0} sv` : (column.xg?.toFixed(2) ?? "–")}`
+          : blank}
+      </span>
+    </li>
   );
 }
 

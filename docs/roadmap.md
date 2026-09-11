@@ -278,6 +278,33 @@ league average of 224.4.
   week, which the API doesn't keep — the spec already flagged this as likely
   underivable.
 
+## Post-v1 refinements
+
+### Player sheet: form strip ✅ done
+
+The sheet's vertical "Upcoming" list became two horizontal rows — last five
+gameweeks above, the horizon below (design spec §6.10). Per-match history comes
+from `element-summary/{id}/` via `model/element.ts`, fetched on sheet open only.
+
+Settled while building it:
+
+- **The column is a gameweek, not a match.** The xP feed prices a gameweek, so a
+  double is summed rather than split and the two rows stay comparable.
+- **The two rows are rated against different peer groups.** Measured against the
+  live feed: across every projected player the per-gameweek thirds sit at
+  0.31/2.64 (DEF) and 0.25/1.61 (FWD), which rates a two-point blank *green*.
+  Across players clearing the minutes threshold they sit at 2.63/3.43 and
+  2.95/4.21, which rates it red — and matches the terciles of actual returns
+  from `event/{gw}/live/` (DEF 1/3, FWD 1/2). So results go through the new
+  `rateReturn`; forecasts keep `rateGameweek`, whose wide band is the right one
+  for "will he even start".
+- **Grey ≠ red.** Zero minutes is unrated, not rated badly.
+- Keepers show saves where outfielders show xG; theirs is 0.00 every week.
+
+Known limit: the result band is still built from *forecasts* for starters rather
+than from actual returns, which would cost five `event/{gw}/live/` fetches. The
+two agree at every integer score today, so it isn't worth the calls yet.
+
 ## Stage 9 — Deploy & automate
 
 1. Vercel project, env vars set.
