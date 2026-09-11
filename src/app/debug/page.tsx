@@ -205,7 +205,7 @@ async function SheetPayload() {
                       .join(" + ")}
               </span>
               <span className="tabular-nums text-text-2">
-                xP {fixture.xp === null ? "–" : fixture.xp.toFixed(1)} · {fixture.xpRag}
+                xP {fixture.points === null ? "–" : fixture.points.toFixed(1)} · {fixture.rag}
               </span>
             </li>
           ))}

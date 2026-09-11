@@ -76,8 +76,10 @@ interface PositionBands {
   points: Terciles | null;
   value: Terciles | null;
   expected: Terciles | null;
-  /** Single-gameweek xP, for rating one fixture at a time. */
+  /** Single-gameweek xP across every projected player, for rating a forecast. */
   perGameweek: Terciles | null;
+  /** The same, across regular starters only, for rating a result. */
+  perStarterGameweek: Terciles | null;
   size: number;
 }
 
@@ -89,6 +91,18 @@ export interface RagScorer {
    * week for a defender and an ordinary one for a premium forward.
    */
   rateGameweek(position: Position, points: number | null): Rag;
+  /**
+   * Rate points a player actually scored in a gameweek against what a regular
+   * starter in this position is expected to return.
+   *
+   * Deliberately a different peer group from `rateGameweek`. Rating a result is
+   * a different question from rating a forecast, and the unfiltered band is too
+   * generous for it: across every projected player the thirds sit around 0.3
+   * and 2.0, so a two-point blank comes back green. Across players who actually
+   * start they sit around 2.7 and 3.5, which calls a blank a blank. This is the
+   * same minutes filter the record metrics in `rate()` already use.
+   */
+  rateReturn(position: Position, points: number | null): Rag;
 }
 
 /**
@@ -119,6 +133,15 @@ export function buildRagScorer(pool: PlayerPool): RagScorer {
       }
     }
 
+    // The starters-only version of the same band, for rating results.
+    const starterGameweekValues: number[] = [];
+    for (const entry of peers) {
+      if (entry.projection === null) continue;
+      for (const week of entry.projection.byGameweek.values()) {
+        starterGameweekValues.push(week.points);
+      }
+    }
+
     bands.set(position, {
       points: tercilesOf(peers.map((entry) => entry.player.totalPoints)),
       value: tercilesOf(peers.map((entry) => entry.player.pointsPerMillion)),
@@ -128,6 +151,7 @@ export function buildRagScorer(pool: PlayerPool): RagScorer {
           .filter((points): points is number => points !== null),
       ),
       perGameweek: tercilesOf(perGameweekValues),
+      perStarterGameweek: tercilesOf(starterGameweekValues),
       size: peers.length,
     });
   }
@@ -135,6 +159,10 @@ export function buildRagScorer(pool: PlayerPool): RagScorer {
   return {
     rateGameweek(position: Position, points: number | null): Rag {
       return score(points, bands.get(position)?.perGameweek ?? null);
+    },
+
+    rateReturn(position: Position, points: number | null): Rag {
+      return score(points, bands.get(position)?.perStarterGameweek ?? null);
     },
 
     rate(entry: PooledPlayer): PlayerRating {

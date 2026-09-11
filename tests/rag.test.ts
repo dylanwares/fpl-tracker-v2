@@ -147,3 +147,51 @@ describe("overallRag", () => {
     expect(overallRag(["green", "green", "none"])).toBe("green");
   });
 });
+
+describe("rateReturn", () => {
+  /** A pooled player carrying a per-gameweek projection, which the bands need. */
+  function projected(
+    id: number,
+    position: Position,
+    perGameweek: number,
+    minutesShare: number,
+  ): PooledPlayer {
+    return {
+      player: { id, position, totalPoints: 40, pointsPerMillion: 5, minutesShare },
+      team: null,
+      projection: {
+        byGameweek: new Map([
+          [4, { gameweek: 4, points: perGameweek, minutes: 90 }],
+          [5, { gameweek: 5, points: perGameweek, minutes: 90 }],
+        ]),
+      },
+      isProjected: true,
+      xpNext: perGameweek,
+      xpHorizon: perGameweek * 2,
+    } as unknown as PooledPlayer;
+  }
+
+  // Six starters forecast 2.0–4.5 against twelve squad players forecast near
+  // zero — roughly the shape of the real feed, where most of the projected
+  // players in a position are not the ones who actually play.
+  const starters = Array.from({ length: 6 }, (_, i) => projected(i + 1, "FWD", 2 + i * 0.5, 0.9));
+  const fringe = Array.from({ length: 12 }, (_, i) => projected(20 + i, "FWD", 0.04 * i, 0.05));
+  const scorer = buildRagScorer(poolOf([...starters, ...fringe]));
+
+  it("calls a two-point blank red, where the forecast band calls it green", () => {
+    // The whole reason the two bands exist: the fringe players drag the
+    // forecast thirds down until any return at all clears the top one.
+    expect(scorer.rateReturn("FWD", 2)).toBe("red");
+    expect(scorer.rateGameweek("FWD", 2)).toBe("green");
+  });
+
+  it("rates a real haul green on both", () => {
+    expect(scorer.rateReturn("FWD", 9)).toBe("green");
+    expect(scorer.rateGameweek("FWD", 9)).toBe("green");
+  });
+
+  it("has no opinion when there is nothing to compare against", () => {
+    expect(scorer.rateReturn("MID", 6)).toBe("none");
+    expect(scorer.rateReturn("FWD", null)).toBe("none");
+  });
+});
